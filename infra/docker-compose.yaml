@@ -1,0 +1,17 @@
+version: "3.8"
+ 
+services:
+  metabase:
+    build: .
+    container_name: metabase-automotive
+    ports:
+      - "3000:3000"
+    environment:
+      - JAVA_TIMEZONE=America/Sao_Paulo
+    volumes:
+      - metabase-data:/metabase-data
+    restart: unless-stopped
+ 
+volumes:
+  metabase-data:
+ 
