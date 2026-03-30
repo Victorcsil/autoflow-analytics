@@ -1,5 +1,3 @@
-version: "3.8"
- 
 services:
   metabase:
     build: .
@@ -8,10 +6,6 @@ services:
       - "3000:3000"
     environment:
       - JAVA_TIMEZONE=America/Sao_Paulo
-    volumes:
-      - metabase-data:/metabase-data
+      - MB_DB_TYPE=h2
+      - MB_DB_FILE=/tmp/metabase/metabase
     restart: unless-stopped
- 
-volumes:
-  metabase-data:
- 
