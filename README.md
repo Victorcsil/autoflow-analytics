@@ -1,4 +1,8 @@
-# PI-IV-A: Pipeline de Big Data Automotiva
+# PI_IV-A
+
+Projeto Integrador IV-A - PUCGO
+
+# Pipeline de Big Data Automotiva
 
 ## Resumo
 
@@ -8,6 +12,62 @@ Este projeto implementa uma pipeline de dados na AWS para processamento e análi
 
 A pipeline de dados automotiva foi construída para gerenciar e analisar grandes volumes de dados de uma oficina mecânica. Ela abrange desde a geração de dados sintéticos até o processamento, limpeza, transformação e análise, culminando em visualizações de negócio. A arquitetura é baseada em serviços gerenciados da AWS, seguindo um modelo de Data Lake para garantir escalabilidade, flexibilidade e governança de dados.
 
+## Diagrama de Arquitetura
+
+```mermaid
+flowchart TD
+    subgraph Ingestão
+        A["🐍 Python + Faker<br/>generate_data.py<br/>183.000 registros"]
+    end
+
+    subgraph Raw["Camada Raw — S3 (automative-dev-piiva)"]
+        B1["📄 clientes/clientes.csv<br/>3.000 registros"]
+        B2["📄 ordens/ordens.csv<br/>100.000 registros"]
+        B3["📄 pecas/pecas.csv<br/>500 registros"]
+        B4["📄 estoque/movimentacao_estoque.csv<br/>80.000 registros"]
+    end
+
+    subgraph ETL1["AWS Glue Job — automative-clean-job"]
+        C["⚙️ Apache Spark<br/>Limpeza e Transformação<br/>• Remoção de duplicatas e nulos<br/>• Conversão de tipos<br/>• Padronização de strings<br/>• Campos derivados"]
+    end
+
+    subgraph Processed["Camada Processed — S3 (automative-prod-piiva)"]
+        D1["📦 clientes/*.parquet"]
+        D2["📦 ordens/*.parquet"]
+        D3["📦 pecas/*.parquet"]
+        D4["📦 estoque/*.parquet"]
+    end
+
+    subgraph ETL2["AWS Glue Job — automotive-analysis-job"]
+        E["⚙️ Apache Spark<br/>Análise e Métricas<br/>• Receita por serviço<br/>• Receita mensal<br/>• Top 10 mecânicos<br/>• Top 20 clientes recorrentes<br/>• Peças mais utilizadas<br/>• Formas de pagamento"]
+    end
+
+    subgraph Results["Camada Results — S3 (automative-results-piiva)"]
+        F1["📊 receita_por_servico/"]
+        F2["📊 receita_mensal/"]
+        F3["📊 top_mecanicos/"]
+        F4["📊 clientes_recorrentes/"]
+        F5["📊 pecas_mais_utilizadas/"]
+        F6["📊 formas_pagamento/"]
+    end
+
+    subgraph Consulta
+        G["🔍 Amazon Athena<br/>Consultas SQL distribuídas"]
+    end
+
+    subgraph Visualização
+        H["📈 Metabase Docker<br/>Dashboard Interativo<br/>• 4 KPIs executivos<br/>• Séries temporais<br/>• Tabelas detalhadas<br/>• Filtros dinâmicos"]
+    end
+
+    A --> B1 & B2 & B3 & B4
+    B1 & B2 & B3 & B4 --> C
+    C --> D1 & D2 & D3 & D4
+    D1 & D2 & D3 & D4 --> E
+    E --> F1 & F2 & F3 & F4 & F5 & F6
+    F1 & F2 & F3 & F4 & F5 & F6 --> G
+    G --> H
+```
+      
 ## Tecnologias
 
 A escolha da AWS se deu pela robustez de seu ecossistema de serviços gerenciados para Big Data, com a possibilidade de operar dentro do *free tier* para o volume de dados do projeto.
