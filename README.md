@@ -85,16 +85,20 @@ O Metabase pode ser executado localmente usando Docker e Docker Compose:
 1.  **Navegue** até a pasta `infra/`.
 2.  **Construa e inicie** o contêiner do Metabase:
     ```bash
-    docker-compose up --build -d
+    docker-compose up -d
     ```
     Este comando irá construir a imagem Docker baseada no `Dockerfile` fornecido e iniciar o serviço Metabase em segundo plano.
 3.  **Acesse o Metabase**: Abra seu navegador e navegue para `http://localhost:3000`.
+
+**Credenciais de Login:**
+- **Email**: `user@gmail.com`
+- **Senha**: `5Of4#Q)-uvV&7U`
 
 **Detalhes da Configuração Docker:**
 
 -   A imagem base é `metabase/metabase:latest`.
 -   A porta `3000` é exposta e mapeada para a porta `3000` do host.
--   Variáveis de ambiente `MB_DB_TYPE=h2` e `JAVA_TIMEZONE=America/Sao_Paulo` são definidas no `Dockerfile` e `docker-compose.yaml`.
+-   Variáveis de ambiente `MB_DB_TYPE=h2` e `JAVA_TIMEZONE=America/Sao_Paulo` são definidas no `docker-compose.yaml`.
 -   Um volume `metabase-data` é criado para persistir os dados do Metabase.
 
 ### Variáveis de Ambiente

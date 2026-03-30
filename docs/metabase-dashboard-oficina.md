@@ -2,7 +2,7 @@
 
 ## 1. Introdução
 
-Este documento apresenta a especificação técnica e funcional do **Painel Executivo de Análise Operacional e Financeira** desenvolvido para a gestão de ordens de serviço no domínio de oficina automotiva. O painel foi implementado utilizando a plataforma de business intelligence **Metabase**, integrada ao banco de dados **Amazon Athena** contendo histórico transacional de ordens.
+Este documento apresenta o **Painel Executivo de Análise Operacional e Financeira** desenvolvido para visualização de métricas de ordens de serviço em oficina automotiva.
 
 **Escopo**: Análise de ordens concluídas, com foco em receita, performance operacional e inteligência comercial.
 
@@ -24,25 +24,15 @@ O painel foi concebido com os seguintes objetivos:
 
 ---
 
-## 3. Arquitetura de Dados e Integração
+## 3. Filtros Disponíveis
 
-### 3.1 Fonte de Dados Primária
-- **Tabela**: `automative_db.ordens` no Amazon Athena
-- **Escopo**: Registros de ordens de serviço com status de conclusão
-- **Frequência de Atualização**: Conforme pipeline de ETL (definido em `docs/tecnico.md`)
+O dashboard oferece três filtros que afetam todos os indicadores:
 
-### 3.2 Filtros Globais Disponíveis
-O dashboard disponibiliza três parâmetros de filtro que afetam globalmente todos os indicadores:
-
-| Parâmetro | Tipo | Descrição | Comportamento |
-|-----------|------|-----------|---------------|
-| **Período** | Date Range | Intervalo de datas para análise | Filtra ordens por data_entrada |
-| **Mecânico** | String (seleção única) | Identificador de mecânico | Filtra por mecanico responsável |
-| **Status** | String (seleção única) | Situação da ordem | Filtra por status da ordem |
-
-**Implementação**: Os filtros utilizam o mecanismo de parameter mapping do Metabase, permitindo aplicação dinâmica aos cards nativos.
-
-
+| Filtro | Tipo | Função |
+|--------|------|--------|
+| **Período** | Intervalo de datas | Selecionar range temporal para análise |
+| **Mecânico** | Seleção única | Filtrar apenas ordens de um mecânico específico |
+| **Status** | Seleção única | Filtrar ordens por situação |
 
 ---
 
@@ -84,16 +74,8 @@ O painel adota uma abordagem de grid responsivo com 24 colunas de largura, divid
 
 **Definição**: Contagem total de ordens com status indicando conclusão (padrão: iniciado com "concl").
 
-**Especificação SQL**:
-```sql
-SELECT COUNT(*) AS total_concluidas 
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl')
-```
-
 **Interpretação**: Representa o volume absoluto de transações finalizadas dentro do período filtrado.
 
-**Tempo Médio de Execução**: ~5 segundos  
 **Atualizações**: Contínua conforme disponibilidade de dados
 
 ---
@@ -107,17 +89,7 @@ WHERE regexp_like(lower(coalesce(status,'')), '^concl')
 
 **Definição**: Proporção de ordens concluídas em relação ao universo total de ordens.
 
-**Especificação SQL**:
-```sql
-SELECT 100.0 * AVG(
-    CASE WHEN regexp_like(lower(coalesce(status,'')), '^concl') 
-    THEN 1 ELSE 0 END
-) AS taxa_conclusao_pct
-FROM automative_db.ordens
-```
-
 **Formatação**: Percentual com 2 casas decimais  
-**Tempo Médio de Execução**: ~4 segundos  
 **Interpretação**: Métrica de eficiência operacional; valores acima de 75% indicam performance saudável.
 
 ---
@@ -131,16 +103,7 @@ FROM automative_db.ordens
 
 **Definição**: Somatório de receita (serviços + peças) de todas as ordens concluídas.
 
-**Especificação SQL**:
-```sql
-SELECT SUM(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) 
-  AS receita_concluida
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl')
-```
-
 **Formatação**: Moeda (BRL - Real Brasileiro)  
-**Tempo Médio de Execução**: ~4 segundos  
 **Interpretação**: Métrica financeira principal; base para decisões de alocação de recursos.
 
 ---
@@ -154,16 +117,7 @@ WHERE regexp_like(lower(coalesce(status,'')), '^concl')
 
 **Definição**: Valor médio por ordem de serviço concluída.
 
-**Especificação SQL**:
-```sql
-SELECT AVG(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) 
-  AS ticket_medio
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl')
-```
-
 **Formatação**: Moeda (BRL)  
-**Tempo Médio de Execução**: ~4 segundos  
 **Interpretação**: Indica valor médio de transação; utilizado para previsão de receita e segmentação de clientes.
 
 ---
@@ -177,22 +131,8 @@ WHERE regexp_like(lower(coalesce(status,'')), '^concl')
 
 **Definição**: Evolução mensal de receita total, volume de ordens e ticket médio de ordens concluídas.
 
-**Especificação SQL**:
-```sql
-SELECT 
-  date_trunc('month', try(date_parse(data_entrada, '%Y-%m-%d'))) AS mes,
-  COUNT(*) AS total_ordens,
-  SUM(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS receita_total,
-  AVG(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS ticket_medio
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl')
-GROUP BY 1 
-ORDER BY 1
-```
-
 **Série de Dados**: 3 eixos (receita, volume, ticket médio)  
 **Período Típico**: Últimos 48 meses  
-**Tempo Médio de Execução**: ~4.8 segundos  
 **Interpretação**: Detecta sazonalidade, tendências de negócio e anomalias operacionais.
 
 ---
@@ -206,7 +146,6 @@ ORDER BY 1
 
 **Definição**: Decomposição mensal de receita discriminando componentes (serviços e peças).
 
-**Tempo Médio de Execução**: Variável conforme período selecionado (~2-5 segundos)  
 **Interpretação**: Fornece inteligência sobre mix de receita; suporta decisões sobre portfolio de serviços.
 
 ---
@@ -220,23 +159,7 @@ ORDER BY 1
 
 **Definição**: Agregação de receita, volume e ticket médio por tipo de serviço (Top 20).
 
-**Especificação SQL**:
-```sql
-SELECT 
-  servico,
-  COUNT(*) AS total_ordens,
-  SUM(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS receita_total,
-  AVG(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS ticket_medio
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl') 
-  AND servico IS NOT NULL
-GROUP BY 1 
-ORDER BY receita_total DESC 
-LIMIT 20
-```
-
 **Colunas**: servico, total_ordens, receita_total, ticket_medio  
-**Tempo Médio de Execução**: ~1.7 segundos  
 **Interpretação**: Identifica serviços prioritários e oportunidades de cross-selling.
 
 ---
@@ -250,23 +173,7 @@ LIMIT 20
 
 **Definição**: Ranking de mecânicos por receita gerada (Top 10).
 
-**Especificação SQL**:
-```sql
-SELECT 
-  mecanico,
-  COUNT(*) AS total_ordens,
-  SUM(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS receita_total,
-  AVG(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS ticket_medio
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl') 
-  AND mecanico IS NOT NULL
-GROUP BY 1 
-ORDER BY receita_total DESC 
-LIMIT 10
-```
-
 **Colunas**: mecanico, total_ordens, receita_total, ticket_medio  
-**Tempo Médio de Execução**: ~1.7 segundos  
 **Interpretação**: Suporta avaliação de performance individual e identificação de best practices.
 
 ---
@@ -280,20 +187,6 @@ LIMIT 10
 
 **Definição**: Distribuição de volume e receita por forma de pagamento.
 
-**Especificação SQL**:
-```sql
-SELECT 
-  pagamento AS forma_pagamento,
-  COUNT(*) AS total_ordens,
-  SUM(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS receita_total
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl') 
-  AND pagamento IS NOT NULL
-GROUP BY 1 
-ORDER BY receita_total DESC
-```
-
-**Tempo Médio de Execução**: ~1.4 segundos  
 **Visualização**: Valores exibidos nos elementos do gráfico  
 **Interpretação**: Monitora fluxo de caixa e preferências de clientes.
 
@@ -308,23 +201,7 @@ ORDER BY receita_total DESC
 
 **Definição**: Clientes com maior frequência de visitas e gasto acumulado (Top 20).
 
-**Especificação SQL**:
-```sql
-SELECT 
-  cliente_id,
-  COUNT(*) AS total_visitas,
-  SUM(COALESCE(valor_servico,0) + COALESCE(valor_peca,0)) AS gasto_total,
-  MIN(try(date_parse(data_entrada, '%Y-%m-%d'))) AS primeira_visita,
-  MAX(try(date_parse(data_entrada, '%Y-%m-%d'))) AS ultima_visita
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl')
-GROUP BY 1 
-ORDER BY total_visitas DESC, gasto_total DESC 
-LIMIT 20
-```
-
 **Colunas**: cliente_id, total_visitas, gasto_total, primeira_visita, ultima_visita  
-**Tempo Médio de Execução**: ~1.7 segundos  
 **Interpretação**: Base para estratégias de fidelização e retenção de clientes de alto valor.
 
 ---
@@ -338,23 +215,7 @@ LIMIT 20
 
 **Definição**: Peças com maior frequência de utilização em ordens concluídas, com receita associada (Top 20).
 
-**Especificação SQL**:
-```sql
-SELECT 
-  peca_utilizada AS peca,
-  COUNT(*) AS total_uso,
-  SUM(COALESCE(valor_peca,0)) AS receita_pecas
-FROM automative_db.ordens 
-WHERE regexp_like(lower(coalesce(status,'')), '^concl') 
-  AND peca_utilizada IS NOT NULL 
-  AND trim(peca_utilizada) <> ''
-GROUP BY 1 
-ORDER BY total_uso DESC 
-LIMIT 20
-```
-
 **Colunas**: peca, total_uso, receita_pecas  
-**Tempo Médio de Execução**: ~1.75 segundos  
 ---
 
 ## 6. Guia de Operação
@@ -389,53 +250,16 @@ Procedimento para extração de dados:
 
 ---
 
-## 7. Considerações Técnicas e de Implementação
+## 7. Recomendações de Uso
 
-### 7.1 Camada de Dados
-
-**Fonte Primária**: Tabela `automative_db.ordens` em Amazon Athena  
-**Escopo**: Registros históricos de ordens de serviço automotivo  
-**Atualização**: Frequência conforme pipeline ETL definido em `docs/tecnico.md`
-
-### 7.2 Tratamento de Dados Ausentes
-
-Implementações detectadas:
-
-- **Valores NULL de Receita**: Substituição por zero utilizando `COALESCE(valor_servico,0) + COALESCE(valor_peca,0)`
-- **Parsing de Datas**: Utilização de `try(date_parse(...))` para tolerância a formatos variáveis
-- **Trimagem de Strings**: Remoção de espaços em branco em categorias via `trim()`
-
-### 7.3 Critério Unificado de Conclusão
-
-Todos os cards aplicam filtro consistente: `regexp_like(lower(coalesce(status,'')), '^concl')`
-
-**Justificativa**: Padronização de semântica de "conclusão" independente de variações de caso ou formatação no banco de dados.
-
-### 7.4 Performance
-
-Tempos de execução observados:
-
-| Componente | Tempo (seg) | Classificação |
-|-----------|------------|---------------|
-| Receita Mensal | 4.8 | Mais Lento |
-| KPIs (cada um) | 4.0-5.0 | Lento |
-| Tabelas Detalhadas | 1.4-1.7 | Rápido |
-| Formas de Pagamento | 1.4 | Mais Rápido |
-
-**Tempo Total de Refresh**: 15-20 segundos (refresh completo do dashboard)
-
----
-
-## 8. Recomendações de Uso
-
-### 8.1 Público-Alvo
+### 7.1 Público-Alvo
 
 - **Gestão Executiva**: Utilizar KPIs da Seção 1 para visão executiva diária
 - **Gestão Operacional**: Explorar Seção 3 (análise por dimensão) e Seção 4 (inteligência comercial)
 - **Análise Comercial**: Detalhar clientes recorrentes e peças críticas
 - **Gestão de RH**: Utilizar ranking de mecânicos para avaliação de performance
 
-### 8.2 Frequência de Consulta Recomendada
+### 7.2 Frequência de Consulta Recomendada
 
 - **KPIs Executivos**: Diária (ao início do expediente)
 - **Tendências Temporais**: Semanal
@@ -444,30 +268,7 @@ Tempos de execução observados:
 
 ---
 
-## 9. Roadmap de Evoluções
-
-### 9.1 Oportunidades Futuras
-
-#### 9.1.1 Hospedagem em Amazon ECS
-Uma evolução arquitetural estratégica seria migrar a instância Metabase de um ambiente Docker Compose local para um serviço containerizado gerenciado em **Amazon ECS (Elastic Container Service)**.
-
-**Benefícios Esperados**:
-- **Escalabilidade Automática**: Aumentar/reduzir recursos conforme demanda sem interrupção de serviço
-- **Alta Disponibilidade**: Configuração multi-AZ com balanceamento de carga automático
-- **Persistência de Dados**: Integração nativa com Amazon RDS PostgreSQL para banco de dados do Metabase
-- **Segurança em Nível Enterprise**: Suporte a IAM, VPC, Security Groups, AWS Secrets Manager
-- **Monitoramento e Observabilidade**: CloudWatch integrado com alertas automáticos
-
-**Roadmap Técnico Sugerido**:
-1. Criar definição de tarefa ECS otimizada com Dockerfile multi-stage
-2. Configurar RDS PostgreSQL como backend do Metabase (substitui SQLite local)
-3. Documentar Terraform para infraestrutura como código (IaC)
-4. Implementar pipeline CI/CD via GitHub Actions → AWS CodePipeline
-5. Validar em ambiente de staging antes de produção
-
----
-
-## 10. Conclusão e Resumo Executivo
+## 8. Conclusão
 
 Este painel foi desenvolvido com objetivo de centralizar e democratizar acesso a métricas operacionais e financeiras de ordens de serviço automotivo. Através de integração com Metabase e Athena, oferece:
 
@@ -480,13 +281,3 @@ Este painel foi desenvolvido com objetivo de centralizar e democratizar acesso a
 **Status Atual**: Operacional e estável  
 **Data da Documentação**: 29 de março de 2026  
 **Versão**: Rev B
-
----
-
-## 11. Referências e Documentação Complementar
-
-Para informações adicionais sobre arquitetura de dados, pipeline ETL e especificações técnicas do projeto, consultar:
-- [Documentação Técnica - `docs/tecnico.md`](./tecnico.md)
-- [Workflow de Snapshots - `infra/SNAPSHOT_WORKFLOW.md`](../infra/SNAPSHOT_WORKFLOW.md)
-
-**Contato**: Para dúvidas técnicas sobre este painel, consulte a equipe de dados ou gestores de projeto listados em `docs/tecnico.md`.
